@@ -13,7 +13,11 @@
         background: #000;
       }
 
-      /* Force the A-Frame canvas to fill the whole screen */
+      /* Make the A-Frame canvas transparent so the camera shows through */
+      canvas {
+        background: transparent !important;
+      }
+
       a-scene {
         width: 100vw !important;
         height: 100vh !important;
@@ -59,7 +63,6 @@
         z-index: 100; white-space: nowrap;
       }
 
-      /* Debug status bar - remove once everything is working */
       #debug {
         position: fixed; top: 12px; left: 12px; right: 12px;
         background: rgba(0,0,0,0.75);
@@ -78,26 +81,23 @@
 
   <body>
 
-    <!-- Loading screen -->
     <div id="loading-screen">
       <h1>Fusion Arts × House of Creativity</h1>
       <p>Loading AR experience…</p>
       <div class="spinner"></div>
     </div>
 
-    <!-- Debug overlay -->
     <div id="debug">
       Status: starting…<br>
       Target: searching…
     </div>
 
-    <!-- Hint overlay -->
     <div id="hint">Point camera at the building facade</div>
 
     <a-scene
       mindar-image="imageTargetSrc: target.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
       color-space="sRGB"
-      renderer="colorManagement: true; physicallyCorrectLights: true"
+      renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
     >
@@ -108,7 +108,6 @@
 
       <a-camera></a-camera>
 
-      <!-- Everything anchored to the building target -->
       <a-entity mindar-image-target="targetIndex: 0">
 
         <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
@@ -160,6 +159,13 @@
 
       scene.addEventListener('loaded', () => {
         setDebug('✅ A-Frame loaded', 'searching…');
+
+        // Force the WebGL canvas to be transparent after it's created
+        const canvas = document.querySelector('canvas');
+        if (canvas) {
+          canvas.style.background = 'transparent';
+        }
+
         setTimeout(() => {
           loading.style.opacity = '0';
           setTimeout(() => loading.style.display = 'none', 800);
