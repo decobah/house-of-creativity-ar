@@ -91,30 +91,6 @@
 
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
-    <script>
-      // Component that overrides all materials on a gltf model
-      // with a simple flat colour once the model loads
-      AFRAME.registerComponent('override-material', {
-        schema: { color: { type: 'color', default: '#7ec8e3' } },
-        init: function () {
-          this.el.addEventListener('model-loaded', () => {
-            const mesh = this.el.getObject3D('mesh');
-            if (!mesh) return;
-            mesh.traverse((node) => {
-              if (node.isMesh) {
-                node.material = new THREE.MeshPhongMaterial({
-                  color: this.data.color,
-                  shininess: 60,
-                  specular: new THREE.Color('#ffffff'),
-                });
-                node.material.needsUpdate = true;
-              }
-            });
-          });
-        }
-      });
-    </script>
   </head>
 
   <body>
@@ -152,7 +128,7 @@
         <a-light type="directional" color="#ffffff" intensity="1.0"
           position="1 2 1"></a-light>
 
-        <!-- Shark (unchanged — its materials work fine) -->
+        <!-- Shark -->
         <a-entity
           gltf-model="#shark-model"
           position="0.5 0.5 0"
@@ -167,19 +143,9 @@
                      easing: easeInOutSine"
         ></a-entity>
 
-        <!-- Diagnostic box — now fully opaque again so we can see if whale covers it -->
-        <a-box
-          position="-0.5 0.5 0"
-          width="0.3" height="0.3" depth="0.3"
-          color="#0088ff"
-        ></a-box>
-
-        <!-- Whale with material override — renders as a solid light-blue colour.
-             Once we confirm it's visible we can try restoring original textures,
-             or keep this style which actually fits the poster artwork nicely. -->
+        <!-- Whale with its own embedded textures -->
         <a-entity
           gltf-model="#whale-model"
-          override-material="color: #5bc8f5"
           position="-0.5 0.5 0"
           scale="1 1 1"
           rotation="0 20 10"
