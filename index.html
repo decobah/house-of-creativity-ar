@@ -10,12 +10,27 @@
       html, body {
         width: 100%; height: 100%;
         overflow: hidden;
-        background: #000;
+        background: transparent;
       }
 
-      /* Make the A-Frame canvas transparent so the camera shows through */
+      /* Camera video feed - Mind AR injects this, we make sure it's visible */
+      video {
+        position: fixed !important;
+        top: 0 !important; left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        object-fit: cover !important;
+        z-index: 0 !important;
+      }
+
+      /* Canvas must be transparent and sit above the video */
       canvas {
+        position: fixed !important;
+        top: 0 !important; left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
         background: transparent !important;
+        z-index: 1 !important;
       }
 
       a-scene {
@@ -23,6 +38,8 @@
         height: 100vh !important;
         position: fixed !important;
         top: 0 !important; left: 0 !important;
+        z-index: 1 !important;
+        background: transparent !important;
       }
 
       #loading-screen {
@@ -74,7 +91,6 @@
       }
     </style>
 
-    <!-- A-Frame MUST come before Mind AR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
@@ -110,26 +126,11 @@
 
       <a-entity mindar-image-target="targetIndex: 0">
 
-        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
-        <a-light type="directional" color="#ffffff" intensity="0.8"
+        <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="1.0"
           position="1 2 1"></a-light>
 
-        <!-- Whale: left side, swimming above the building -->
-        <a-entity
-          gltf-model="#whale-model"
-          position="-0.4 1.2 0"
-          scale="0.15 0.15 0.15"
-          rotation="0 20 10"
-          animation="property: position;
-                     from: -0.4 1.2 0;
-                     to: -0.4 1.5 0;
-                     dur: 3000;
-                     dir: alternate;
-                     loop: true;
-                     easing: easeInOutSine"
-        ></a-entity>
-
-        <!-- Shark: right side, slightly lower -->
+        <!-- Shark -->
         <a-entity
           gltf-model="#shark-model"
           position="0.5 0.9 0"
@@ -139,6 +140,22 @@
                      from: 0.5 0.9 0;
                      to: 0.5 1.1 0;
                      dur: 2500;
+                     dir: alternate;
+                     loop: true;
+                     easing: easeInOutSine"
+        ></a-entity>
+
+        <!-- Whale: scaled up large so we can find it.
+             Once visible, we'll tune position and scale together. -->
+        <a-entity
+          gltf-model="#whale-model"
+          position="0 2 0"
+          scale="1 1 1"
+          rotation="0 0 0"
+          animation="property: position;
+                     from: 0 2 0;
+                     to: 0 2.3 0;
+                     dur: 3000;
                      dir: alternate;
                      loop: true;
                      easing: easeInOutSine"
@@ -160,11 +177,30 @@
       scene.addEventListener('loaded', () => {
         setDebug('✅ A-Frame loaded', 'searching…');
 
-        // Force the WebGL canvas to be transparent after it's created
+        // Force canvas transparency after it's created
         const canvas = document.querySelector('canvas');
         if (canvas) {
           canvas.style.background = 'transparent';
+          canvas.style.backgroundColor = 'transparent';
         }
+
+        // Force the video element to be visible behind the canvas
+        // Mind AR injects it — we grab it once it exists
+        setTimeout(() => {
+          const video = document.querySelector('video');
+          if (video) {
+            video.style.position = 'fixed';
+            video.style.top = '0';
+            video.style.left = '0';
+            video.style.width = '100vw';
+            video.style.height = '100vh';
+            video.style.objectFit = 'cover';
+            video.style.zIndex = '0';
+            setDebug('✅ A-Frame loaded — video found', 'searching…');
+          } else {
+            setDebug('✅ A-Frame loaded — ⚠️ no video element found', 'searching…');
+          }
+        }, 2000);
 
         setTimeout(() => {
           loading.style.opacity = '0';
@@ -174,6 +210,16 @@
 
       scene.addEventListener('arReady', () => {
         setDebug('✅ Mind AR ready — camera live', 'searching…');
+
+        // Try again to fix video once AR is fully initialised
+        const video = document.querySelector('video');
+        if (video) {
+          video.style.zIndex = '0';
+          video.style.position = 'fixed';
+          video.style.width = '100vw';
+          video.style.height = '100vh';
+          video.style.objectFit = 'cover';
+        }
       });
 
       scene.addEventListener('arError', (e) => {
