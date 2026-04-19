@@ -13,7 +13,6 @@
         background: transparent;
       }
 
-      /* Camera video feed - Mind AR injects this, we make sure it's visible */
       video {
         position: fixed !important;
         top: 0 !important; left: 0 !important;
@@ -23,7 +22,6 @@
         z-index: 0 !important;
       }
 
-      /* Canvas must be transparent and sit above the video */
       canvas {
         position: fixed !important;
         top: 0 !important; left: 0 !important;
@@ -118,8 +116,9 @@
       device-orientation-permission-ui="enabled: false"
     >
       <a-assets timeout="15000">
-        <a-asset-item id="whale-model" src="whale.glb"></a-asset-item>
         <a-asset-item id="shark-model" src="shark.glb"></a-asset-item>
+        <!-- whale.glb still referenced so it loads, but we test with a box first -->
+        <a-asset-item id="whale-model" src="whale.glb"></a-asset-item>
       </a-assets>
 
       <a-camera></a-camera>
@@ -130,36 +129,39 @@
         <a-light type="directional" color="#ffffff" intensity="1.0"
           position="1 2 1"></a-light>
 
-        <!-- Shark -->
+        <!-- Shark (unchanged) -->
         <a-entity
           gltf-model="#shark-model"
-          position="0.5 0.9 0"
+          position="0.5 0.5 0"
           scale="0.1 0.1 0.1"
           rotation="0 -15 -8"
           animation="property: position;
-                     from: 0.5 0.9 0;
-                     to: 0.5 1.1 0;
+                     from: 0.5 0.5 0;
+                     to: 0.5 0.7 0;
                      dur: 2500;
                      dir: alternate;
                      loop: true;
                      easing: easeInOutSine"
         ></a-entity>
 
-        <!-- Whale: scaled up large so we can find it.
-             Once visible, we'll tune position and scale together. -->
+        <!-- DIAGNOSTIC: bright blue box where the whale should be.
+             If you can see this, the anchor is fine and the whale GLB is the problem.
+             If you cannot see this box either, something else is wrong. -->
+        <a-box
+          position="-0.5 0.5 0"
+          width="0.3" height="0.3" depth="0.3"
+          color="#0088ff"
+          opacity="1"
+        ></a-box>
+
+        <!-- Whale GLB also present — if the box shows but the whale doesn't,
+             we know it's the model file. Uncomment to test side by side:
         <a-entity
           gltf-model="#whale-model"
-          position="0 2 0"
+          position="-0.5 1 0"
           scale="1 1 1"
-          rotation="0 0 0"
-          animation="property: position;
-                     from: 0 2 0;
-                     to: 0 2.3 0;
-                     dur: 3000;
-                     dir: alternate;
-                     loop: true;
-                     easing: easeInOutSine"
         ></a-entity>
+        -->
 
       </a-entity>
     </a-scene>
@@ -177,15 +179,12 @@
       scene.addEventListener('loaded', () => {
         setDebug('✅ A-Frame loaded', 'searching…');
 
-        // Force canvas transparency after it's created
         const canvas = document.querySelector('canvas');
         if (canvas) {
           canvas.style.background = 'transparent';
           canvas.style.backgroundColor = 'transparent';
         }
 
-        // Force the video element to be visible behind the canvas
-        // Mind AR injects it — we grab it once it exists
         setTimeout(() => {
           const video = document.querySelector('video');
           if (video) {
@@ -198,7 +197,7 @@
             video.style.zIndex = '0';
             setDebug('✅ A-Frame loaded — video found', 'searching…');
           } else {
-            setDebug('✅ A-Frame loaded — ⚠️ no video element found', 'searching…');
+            setDebug('✅ A-Frame loaded — ⚠️ no video element', 'searching…');
           }
         }, 2000);
 
@@ -210,8 +209,6 @@
 
       scene.addEventListener('arReady', () => {
         setDebug('✅ Mind AR ready — camera live', 'searching…');
-
-        // Try again to fix video once AR is fully initialised
         const video = document.querySelector('video');
         if (video) {
           video.style.zIndex = '0';
