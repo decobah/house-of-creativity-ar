@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fusion Arts AR</title>
+    <style>
+      body { margin: 0; overflow: hidden; background: #000; }
+
+      #loading-screen {
+        position: fixed; inset: 0;
+        background: #0a0a1a;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        z-index: 999; color: #fff;
+        font-family: sans-serif; text-align: center;
+        transition: opacity 0.8s ease;
+      }
+      #loading-screen h1 {
+        font-size: 22px; font-weight: 500;
+        margin: 0 0 8px; color: #f5d97a;
+      }
+      #loading-screen p {
+        font-size: 14px; opacity: 0.6; margin: 0 0 32px;
+      }
+      .spinner {
+        width: 40px; height: 40px;
+        border: 3px solid rgba(255,255,255,0.15);
+        border-top-color: #f5d97a;
+        border-radius: 50%;
+        animation: spin 0.9s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+
+      #hint {
+        position: fixed; bottom: 40px; left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.6);
+        color: #fff; font-family: sans-serif;
+        font-size: 14px; padding: 10px 20px;
+        border-radius: 24px;
+        pointer-events: none;
+        opacity: 1; transition: opacity 1s ease;
+        z-index: 100; white-space: nowrap;
+      }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  </head>
+
+  <body>
+    <!-- Loading screen -->
+    <div id="loading-screen">
+      <h1>Fusion Arts × House of Creativity</h1>
+      <p>Point your camera at the building</p>
+      <div class="spinner"></div>
+    </div>
+
+    <!-- Hint overlay -->
+    <div id="hint">Point camera at the building facade</div>
+
+    <a-scene
+      mindar-image="imageTargetSrc: target.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
+      color-space="sRGB"
+      renderer="colorManagement: true; physicallyCorrectLights: true"
+      vr-mode-ui="enabled: false"
+      device-orientation-permission-ui="enabled: false"
+    >
+      <a-assets>
+        <a-asset-item id="whale-model" src="whale.glb"></a-asset-item>
+        <a-asset-item id="shark-model" src="shark.glb"></a-asset-item>
+      </a-assets>
+
+      <a-camera></a-camera>
+
+      <!-- Everything anchored to the building target -->
+      <a-entity mindar-image-target="targetIndex: 0">
+
+        <!-- Ambient light so models aren't pitch black -->
+        <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
+        <a-light type="directional" color="#ffffff" intensity="0.8"
+          position="1 2 1"></a-light>
+
+        <!-- Whale: left side, swimming above the building -->
+        <a-entity
+          gltf-model="#whale-model"
+          position="-0.4 1.2 0"
+          scale="0.15 0.15 0.15"
+          rotation="0 20 10"
+          animation="property: position;
+                     from: -0.4 1.2 0;
+                     to: -0.4 1.5 0;
+                     dur: 3000;
+                     dir: alternate;
+                     loop: true;
+                     easing: easeInOutSine"
+        ></a-entity>
+
+        <!-- Shark: right side, slightly lower -->
+        <a-entity
+          gltf-model="#shark-model"
+          position="0.5 0.9 0"
+          scale="0.1 0.1 0.1"
+          rotation="0 -15 -8"
+          animation="property: position;
+                     from: 0.5 0.9 0;
+                     to: 0.5 1.1 0;
+                     dur: 2500;
+                     dir: alternate;
+                     loop: true;
+                     easing: easeInOutSine"
+        ></a-entity>
+
+      </a-entity>
+    </a-scene>
+
+    <script>
+      const scene = document.querySelector('a-scene');
+      const loading = document.getElementById('loading-screen');
+      const hint = document.getElementById('hint');
+
+      // Hide loading screen once A-Frame is ready
+      scene.addEventListener('loaded', () => {
+        setTimeout(() => {
+          loading.style.opacity = '0';
+          setTimeout(() => loading.style.display = 'none', 800);
+        }, 1200);
+      });
+
+      // Fade out hint after 5 seconds
+      setTimeout(() => { hint.style.opacity = '0'; }, 5000);
+
+      // When target is found, hide hint immediately
+      scene.addEventListener('targetFound', () => {
+        hint.style.opacity = '0';
+      });
+
+      scene.addEventListener('targetLost', () => {
+        hint.style.opacity = '1';
+      });
+    </script>
+  </body>
+</html>
