@@ -117,7 +117,6 @@
     >
       <a-assets timeout="15000">
         <a-asset-item id="shark-model" src="shark.glb"></a-asset-item>
-        <!-- whale.glb still referenced so it loads, but we test with a box first -->
         <a-asset-item id="whale-model" src="whale.glb"></a-asset-item>
       </a-assets>
 
@@ -129,7 +128,7 @@
         <a-light type="directional" color="#ffffff" intensity="1.0"
           position="1 2 1"></a-light>
 
-        <!-- Shark (unchanged) -->
+        <!-- Shark -->
         <a-entity
           gltf-model="#shark-model"
           position="0.5 0.5 0"
@@ -144,24 +143,31 @@
                      easing: easeInOutSine"
         ></a-entity>
 
-        <!-- DIAGNOSTIC: bright blue box where the whale should be.
-             If you can see this, the anchor is fine and the whale GLB is the problem.
-             If you cannot see this box either, something else is wrong. -->
+        <!-- Diagnostic box: still visible so we can confirm anchor is fine.
+             The whale renders at the same position, slightly higher.
+             If the whale GLB is working you will see it overlapping or replacing the box. -->
         <a-box
           position="-0.5 0.5 0"
           width="0.3" height="0.3" depth="0.3"
           color="#0088ff"
-          opacity="1"
+          opacity="0.5"
         ></a-box>
 
-        <!-- Whale GLB also present — if the box shows but the whale doesn't,
-             we know it's the model file. Uncomment to test side by side:
+        <!-- Whale GLB — scale="1 1 1" because it is 1/10th the size of the shark
+             which is at scale="0.1 0.1 0.1", so this makes them equivalent size -->
         <a-entity
           gltf-model="#whale-model"
-          position="-0.5 1 0"
+          position="-0.5 0.5 0"
           scale="1 1 1"
+          rotation="0 20 10"
+          animation="property: position;
+                     from: -0.5 0.5 0;
+                     to: -0.5 0.7 0;
+                     dur: 3000;
+                     dir: alternate;
+                     loop: true;
+                     easing: easeInOutSine"
         ></a-entity>
-        -->
 
       </a-entity>
     </a-scene>
