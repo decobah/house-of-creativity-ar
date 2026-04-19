@@ -5,8 +5,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Fusion Arts AR</title>
     <style>
-      * { box-sizing: border-box; }
-      body { margin: 0; overflow: hidden; background: #000; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html, body {
+        width: 100%; height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+
+      /* Force the A-Frame canvas to fill the whole screen */
+      a-scene {
+        width: 100vw !important;
+        height: 100vh !important;
+        position: fixed !important;
+        top: 0 !important; left: 0 !important;
+      }
 
       #loading-screen {
         position: fixed; inset: 0;
@@ -45,19 +58,37 @@
         opacity: 1; transition: opacity 1s ease;
         z-index: 100; white-space: nowrap;
       }
+
+      /* Debug status bar - remove once everything is working */
+      #debug {
+        position: fixed; top: 12px; left: 12px; right: 12px;
+        background: rgba(0,0,0,0.75);
+        color: #0f0; font-family: monospace;
+        font-size: 12px; padding: 8px 12px;
+        border-radius: 8px;
+        z-index: 200;
+        line-height: 1.6;
+      }
     </style>
 
-    <!-- IMPORTANT: A-Frame must load BEFORE Mind AR -->
+    <!-- A-Frame MUST come before Mind AR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
 
   <body>
+
     <!-- Loading screen -->
     <div id="loading-screen">
       <h1>Fusion Arts × House of Creativity</h1>
       <p>Loading AR experience…</p>
       <div class="spinner"></div>
+    </div>
+
+    <!-- Debug overlay -->
+    <div id="debug">
+      Status: starting…<br>
+      Target: searching…
     </div>
 
     <!-- Hint overlay -->
@@ -69,9 +100,8 @@
       renderer="colorManagement: true; physicallyCorrectLights: true"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
-      embedded
     >
-      <a-assets timeout="10000">
+      <a-assets timeout="15000">
         <a-asset-item id="whale-model" src="whale.glb"></a-asset-item>
         <a-asset-item id="shark-model" src="shark.glb"></a-asset-item>
       </a-assets>
@@ -122,25 +152,40 @@
       const scene = document.querySelector('a-scene');
       const loading = document.getElementById('loading-screen');
       const hint = document.getElementById('hint');
+      const debug = document.getElementById('debug');
 
-      // Hide loading screen once A-Frame is ready
+      function setDebug(status, target) {
+        debug.innerHTML = 'Status: ' + status + '<br>Target: ' + target;
+      }
+
       scene.addEventListener('loaded', () => {
+        setDebug('✅ A-Frame loaded', 'searching…');
         setTimeout(() => {
           loading.style.opacity = '0';
           setTimeout(() => loading.style.display = 'none', 800);
         }, 1200);
       });
 
-      // Fade out hint after 5 seconds
-      setTimeout(() => { hint.style.opacity = '0'; }, 5000);
+      scene.addEventListener('arReady', () => {
+        setDebug('✅ Mind AR ready — camera live', 'searching…');
+      });
 
-      // Show/hide hint based on whether target is visible
+      scene.addEventListener('arError', (e) => {
+        setDebug('❌ AR Error: ' + (e.detail || 'unknown'), '—');
+      });
+
       scene.addEventListener('targetFound', () => {
+        setDebug('✅ Mind AR ready', '🎯 TARGET FOUND!');
         hint.style.opacity = '0';
       });
+
       scene.addEventListener('targetLost', () => {
+        setDebug('✅ Mind AR ready', 'searching…');
         hint.style.opacity = '1';
       });
+
+      setTimeout(() => { hint.style.opacity = '0'; }, 5000);
     </script>
+
   </body>
 </html>
