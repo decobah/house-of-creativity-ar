@@ -2,8 +2,10 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Fusion Arts AR</title>
     <style>
+      * { box-sizing: border-box; }
       body { margin: 0; overflow: hidden; background: #000; }
 
       #loading-screen {
@@ -13,6 +15,7 @@
         align-items: center; justify-content: center;
         z-index: 999; color: #fff;
         font-family: sans-serif; text-align: center;
+        padding: 24px;
         transition: opacity 0.8s ease;
       }
       #loading-screen h1 {
@@ -44,15 +47,16 @@
       }
     </style>
 
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <!-- IMPORTANT: A-Frame must load BEFORE Mind AR -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
   </head>
 
   <body>
     <!-- Loading screen -->
     <div id="loading-screen">
       <h1>Fusion Arts × House of Creativity</h1>
-      <p>Point your camera at the building</p>
+      <p>Loading AR experience…</p>
       <div class="spinner"></div>
     </div>
 
@@ -65,8 +69,9 @@
       renderer="colorManagement: true; physicallyCorrectLights: true"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
+      embedded
     >
-      <a-assets>
+      <a-assets timeout="10000">
         <a-asset-item id="whale-model" src="whale.glb"></a-asset-item>
         <a-asset-item id="shark-model" src="shark.glb"></a-asset-item>
       </a-assets>
@@ -76,7 +81,6 @@
       <!-- Everything anchored to the building target -->
       <a-entity mindar-image-target="targetIndex: 0">
 
-        <!-- Ambient light so models aren't pitch black -->
         <a-light type="ambient" color="#ffffff" intensity="0.6"></a-light>
         <a-light type="directional" color="#ffffff" intensity="0.8"
           position="1 2 1"></a-light>
@@ -130,11 +134,10 @@
       // Fade out hint after 5 seconds
       setTimeout(() => { hint.style.opacity = '0'; }, 5000);
 
-      // When target is found, hide hint immediately
+      // Show/hide hint based on whether target is visible
       scene.addEventListener('targetFound', () => {
         hint.style.opacity = '0';
       });
-
       scene.addEventListener('targetLost', () => {
         hint.style.opacity = '1';
       });
