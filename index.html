@@ -66,6 +66,34 @@
       }
       @keyframes spin { to { transform: rotate(360deg); } }
 
+      /* Tap to start overlay — shown if autoplay is blocked */
+      #tap-to-start {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: 9998;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        color: #fff;
+        font-family: sans-serif;
+        text-align: center;
+        cursor: pointer;
+      }
+      #tap-to-start.visible {
+        display: flex;
+      }
+      #tap-to-start p {
+        font-size: 22px;
+        font-weight: 500;
+        color: #f5d97a;
+        margin-bottom: 12px;
+      }
+      #tap-to-start span {
+        font-size: 14px;
+        opacity: 0.6;
+      }
+
       #hint {
         position: fixed; bottom: 40px; left: 50%;
         transform: translateX(-50%);
@@ -75,12 +103,9 @@
         border-radius: 24px;
         pointer-events: none;
         opacity: 1; transition: opacity 1s ease;
-        /* high z-index so it sits above canvas */
         z-index: 9998; white-space: nowrap;
       }
 
-      /* Debug panel: very high z-index and pointer-events none
-         so it always renders on top of the canvas and scene */
       #debug {
         position: fixed;
         top: 12px; left: 12px; right: 12px;
@@ -110,8 +135,12 @@
       <div class="spinner"></div>
     </div>
 
-    <!-- Debug panel rendered in HTML, well above the WebGL canvas -->
-    <div id="debug">v1.2 | Status: starting…<br>Target: searching…</div>
+    <div id="tap-to-start">
+      <p>Tap to start</p>
+      <span>Tap anywhere to enable video</span>
+    </div>
+
+    <div id="debug">v1.3 | Status: starting…<br>Target: searching… | Video: —</div>
 
     <div id="hint">Point camera at the building facade</div>
 
@@ -123,7 +152,6 @@
       device-orientation-permission-ui="enabled: false"
     >
       <a-assets timeout="15000">
-        <!-- Using mp4 for now to check video content and placement -->
         <video
           id="shark-video"
           src="shark.mp4"
@@ -132,6 +160,7 @@
           playsinline
           webkit-playsinline
           crossorigin="anonymous"
+          preload="auto"
         ></video>
       </a-assets>
 
@@ -143,7 +172,6 @@
         <a-light type="directional" color="#ffffff" intensity="1.0"
           position="1 2 1"></a-light>
 
-        <!-- Square video plane, mp4 with standard material for now -->
         <a-video
           src="#shark-video"
           position="0 0.8 0"
@@ -156,19 +184,60 @@
     </a-scene>
 
     <script>
-      const VERSION = '1.2';
+      const VERSION = '1.3';
 
       const scene = document.querySelector('a-scene');
       const loading = document.getElementById('loading-screen');
       const hint = document.getElementById('hint');
       const debug = document.getElementById('debug');
+      const tapToStart = document.getElementById('tap-to-start');
+      const sharkVideo = document.getElementById('shark-video');
 
-      function setDebug(status, target) {
-        debug.innerHTML = 'v' + VERSION + ' | Status: ' + status + '<br>Target: ' + target;
+      function setDebug(status, target, video) {
+        debug.innerHTML =
+          'v' + VERSION + ' | ' + status +
+          '<br>Target: ' + target +
+          '<br>Video: ' + (video || '—');
       }
 
+      function getVideoState() {
+        if (!sharkVideo) return 'no element';
+        if (sharkVideo.error) return '❌ error ' + sharkVideo.error.code;
+        if (sharkVideo.paused) return '⏸ paused (readyState ' + sharkVideo.readyState + ')';
+        if (sharkVideo.playing) return '▶ playing';
+        return 'readyState ' + sharkVideo.readyState;
+      }
+
+      function tryPlay() {
+        if (!sharkVideo) return;
+        sharkVideo.play()
+          .then(() => {
+            tapToStart.classList.remove('visible');
+            setDebug('✅ Ready', 'searching…', '▶ playing');
+          })
+          .catch((e) => {
+            setDebug('✅ Ready', 'searching…', '⚠️ blocked: ' + e.name);
+            tapToStart.classList.add('visible');
+          });
+      }
+
+      // Log video events to debug panel
+      if (sharkVideo) {
+        sharkVideo.addEventListener('playing', () => setDebug('✅ Ready', 'searching…', '▶ playing'));
+        sharkVideo.addEventListener('pause',   () => setDebug('✅ Ready', 'searching…', '⏸ paused'));
+        sharkVideo.addEventListener('waiting', () => setDebug('✅ Ready', 'searching…', '⏳ buffering'));
+        sharkVideo.addEventListener('error',   () => setDebug('✅ Ready', 'searching…', '❌ load error'));
+        sharkVideo.addEventListener('stalled', () => setDebug('✅ Ready', 'searching…', '⚠️ stalled'));
+        sharkVideo.addEventListener('canplay', () => setDebug('✅ Ready', 'searching…', '✅ can play'));
+      }
+
+      // Tap to start overlay — plays video on user gesture
+      tapToStart.addEventListener('click', () => {
+        tryPlay();
+      });
+
       scene.addEventListener('loaded', () => {
-        setDebug('✅ A-Frame loaded', 'searching…');
+        setDebug('✅ A-Frame loaded', 'searching…', getVideoState());
 
         const canvas = document.querySelector('canvas');
         if (canvas) {
@@ -176,13 +245,8 @@
           canvas.style.backgroundColor = 'transparent';
         }
 
-        const sharkVideo = document.getElementById('shark-video');
-        if (sharkVideo) {
-          sharkVideo.play().catch(() => {
-            setDebug('⚠️ Autoplay blocked — tap screen', 'searching…');
-            document.addEventListener('click', () => sharkVideo.play(), { once: true });
-          });
-        }
+        // Try autoplay immediately
+        tryPlay();
 
         setTimeout(() => {
           document.querySelectorAll('video').forEach(v => {
@@ -196,7 +260,6 @@
               v.style.zIndex = '0';
             }
           });
-          setDebug('✅ Ready', 'searching…');
         }, 2000);
 
         setTimeout(() => {
@@ -206,7 +269,7 @@
       });
 
       scene.addEventListener('arReady', () => {
-        setDebug('✅ Mind AR ready — camera live', 'searching…');
+        setDebug('✅ Mind AR ready — camera live', 'searching…', getVideoState());
         document.querySelectorAll('video').forEach(v => {
           if (!v.id) {
             v.style.zIndex = '0';
@@ -219,18 +282,17 @@
       });
 
       scene.addEventListener('arError', (e) => {
-        setDebug('❌ AR Error: ' + (e.detail || 'unknown'), '—');
+        setDebug('❌ AR Error: ' + (e.detail || 'unknown'), '—', getVideoState());
       });
 
       scene.addEventListener('targetFound', () => {
-        setDebug('✅ Mind AR ready', '🎯 TARGET FOUND!');
+        setDebug('✅ Mind AR ready', '🎯 TARGET FOUND!', getVideoState());
         hint.style.opacity = '0';
-        const sharkVideo = document.getElementById('shark-video');
-        if (sharkVideo && sharkVideo.paused) sharkVideo.play().catch(() => {});
+        if (sharkVideo && sharkVideo.paused) tryPlay();
       });
 
       scene.addEventListener('targetLost', () => {
-        setDebug('✅ Mind AR ready', 'searching…');
+        setDebug('✅ Mind AR ready', 'searching…', getVideoState());
         hint.style.opacity = '1';
       });
 
