@@ -93,7 +93,8 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <script>
-      // Register a custom shader that reads the alpha channel from the webm
+      const VERSION = '1.1';
+
       AFRAME.registerShader('webm-alpha', {
         schema: {
           src: { type: 'map', is: 'uniform' },
@@ -110,7 +111,6 @@
           varying vec2 vUv;
           void main() {
             vec4 color = texture2D(src, vUv);
-            // Discard nearly transparent pixels so background shows through
             if (color.a < 0.05) discard;
             gl_FragColor = color;
           }
@@ -128,7 +128,7 @@
     </div>
 
     <div id="debug">
-      Status: starting…<br>
+      v1.1 | Status: starting…<br>
       Target: searching…
     </div>
 
@@ -161,7 +161,6 @@
         <a-light type="directional" color="#ffffff" intensity="1.0"
           position="1 2 1"></a-light>
 
-        <!-- Square video plane using the webm-alpha shader -->
         <a-video
           src="#shark-video"
           position="0 0.8 0"
@@ -180,7 +179,7 @@
       const debug = document.getElementById('debug');
 
       function setDebug(status, target) {
-        debug.innerHTML = 'Status: ' + status + '<br>Target: ' + target;
+        debug.innerHTML = 'v' + VERSION + ' | Status: ' + status + '<br>Target: ' + target;
       }
 
       scene.addEventListener('loaded', () => {
@@ -192,7 +191,6 @@
           canvas.style.backgroundColor = 'transparent';
         }
 
-        // Play shark video
         const sharkVideo = document.getElementById('shark-video');
         if (sharkVideo) {
           sharkVideo.play().catch(() => {
@@ -213,7 +211,7 @@
               v.style.zIndex = '0';
             }
           });
-          setDebug('✅ A-Frame loaded — ready', 'searching…');
+          setDebug('✅ Ready', 'searching…');
         }, 2000);
 
         setTimeout(() => {
