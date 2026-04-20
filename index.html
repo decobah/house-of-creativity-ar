@@ -116,8 +116,19 @@
       device-orientation-permission-ui="enabled: false"
     >
       <a-assets timeout="15000">
-        <a-asset-item id="shark-model" src="shark.glb"></a-asset-item>
-        <a-asset-item id="whale-model" src="whale.glb"></a-asset-item>
+        <!-- Shark video: muted and loop required for mobile autoplay -->
+        <video
+          id="shark-video"
+          src="shark.webm"
+          loop
+          muted
+          playsinline
+          webkit-playsinline
+          crossorigin="anonymous"
+        ></video>
+
+        <!-- Whale disabled for now -->
+        <!-- <a-asset-item id="whale-model" src="whale.glb"></a-asset-item> -->
       </a-assets>
 
       <a-camera></a-camera>
@@ -128,28 +139,32 @@
         <a-light type="directional" color="#ffffff" intensity="1.0"
           position="1 2 1"></a-light>
 
-        <!-- Shark: animation-mixer plays the GLB's built-in animation clips -->
-        <a-entity
-          gltf-model="#shark-model"
-          animation-mixer="clip: *; loop: repeat; crossFadeDuration: 0.3"
-          position="0.5 0.5 0"
-          scale="0.1 0.1 0.1"
-          rotation="0 -15 -8"
+        <!-- Shark as transparent video on a flat plane.
+             Width and height control the size of the plane — adjust to taste.
+             The plane faces forward by default (toward the camera). -->
+        <a-video
+          src="#shark-video"
+          position="0 0.8 0"
+          width="1"
+          height="0.6"
+          rotation="0 0 0"
+          material="transparent: true; alphaTest: 0.1; side: double"
           animation__float="property: position;
-                     from: 0.5 0.5 0;
-                     to: 0.5 0.7 0;
-                     dur: 2500;
-                     dir: alternate;
-                     loop: true;
-                     easing: easeInOutSine"
-        ></a-entity>
+                            from: 0 0.8 0;
+                            to: 0 1.0 0;
+                            dur: 2500;
+                            dir: alternate;
+                            loop: true;
+                            easing: easeInOutSine"
+        ></a-video>
 
-        <!-- Whale: scaled to 0.2 (5x smaller than before) -->
+        <!-- Whale commented out for now -->
+        <!--
         <a-entity
           gltf-model="#whale-model"
           animation-mixer="clip: *; loop: repeat; crossFadeDuration: 0.3"
           position="-0.5 0.5 0"
-          scale="0.1 0.1 0.1"
+          scale="0.2 0.2 0.2"
           rotation="0 20 10"
           animation__float="property: position;
                      from: -0.5 0.5 0;
@@ -159,6 +174,7 @@
                      loop: true;
                      easing: easeInOutSine"
         ></a-entity>
+        -->
 
       </a-entity>
     </a-scene>
@@ -182,20 +198,34 @@
           canvas.style.backgroundColor = 'transparent';
         }
 
+        // Force shark video to play — needed on some Android browsers
+        const sharkVideo = document.getElementById('shark-video');
+        if (sharkVideo) {
+          sharkVideo.play().catch(e => {
+            setDebug('⚠️ Video autoplay blocked: ' + e.message, 'searching…');
+          });
+        }
+
         setTimeout(() => {
-          const video = document.querySelector('video');
-          if (video) {
-            video.style.position = 'fixed';
-            video.style.top = '0';
-            video.style.left = '0';
-            video.style.width = '100vw';
-            video.style.height = '100vh';
-            video.style.objectFit = 'cover';
-            video.style.zIndex = '0';
-            setDebug('✅ A-Frame loaded — video found', 'searching…');
-          } else {
-            setDebug('✅ A-Frame loaded — ⚠️ no video element', 'searching…');
-          }
+          const video = document.querySelector('video[src="shark.webm"]');
+          const cameraVideo = document.querySelector('video:not([src])') ||
+                              document.querySelector('video[src=""]');
+
+          // Fix camera feed video layering
+          document.querySelectorAll('video').forEach(v => {
+            if (!v.id) {
+              // This is the Mind AR camera feed, not our shark
+              v.style.position = 'fixed';
+              v.style.top = '0';
+              v.style.left = '0';
+              v.style.width = '100vw';
+              v.style.height = '100vh';
+              v.style.objectFit = 'cover';
+              v.style.zIndex = '0';
+            }
+          });
+
+          setDebug('✅ A-Frame loaded — ready', 'searching…');
         }, 2000);
 
         setTimeout(() => {
@@ -206,14 +236,17 @@
 
       scene.addEventListener('arReady', () => {
         setDebug('✅ Mind AR ready — camera live', 'searching…');
-        const video = document.querySelector('video');
-        if (video) {
-          video.style.zIndex = '0';
-          video.style.position = 'fixed';
-          video.style.width = '100vw';
-          video.style.height = '100vh';
-          video.style.objectFit = 'cover';
-        }
+
+        // Fix camera video z-index — target videos without an id (Mind AR camera feed)
+        document.querySelectorAll('video').forEach(v => {
+          if (!v.id) {
+            v.style.zIndex = '0';
+            v.style.position = 'fixed';
+            v.style.width = '100vw';
+            v.style.height = '100vh';
+            v.style.objectFit = 'cover';
+          }
+        });
       });
 
       scene.addEventListener('arError', (e) => {
@@ -223,6 +256,12 @@
       scene.addEventListener('targetFound', () => {
         setDebug('✅ Mind AR ready', '🎯 TARGET FOUND!');
         hint.style.opacity = '0';
+
+        // Ensure video is playing when target comes into view
+        const sharkVideo = document.getElementById('shark-video');
+        if (sharkVideo && sharkVideo.paused) {
+          sharkVideo.play().catch(() => {});
+        }
       });
 
       scene.addEventListener('targetLost', () => {
