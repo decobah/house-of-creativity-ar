@@ -3,6 +3,7 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Fusion Arts AR</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -13,6 +14,17 @@
         background: transparent;
       }
 
+      /* Camera video — sits behind everything */
+      #camera-feed {
+        position: fixed !important;
+        top: 0 !important; left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        object-fit: cover !important;
+        z-index: 0 !important;
+      }
+
+      /* All video elements get pushed behind canvas */
       video {
         position: fixed !important;
         top: 0 !important; left: 0 !important;
@@ -119,7 +131,9 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <script>
-      const VERSION = '1.5';
+      const VERSION = '1.6';
+
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 
       AFRAME.registerShader('webm-alpha', {
         schema: {
@@ -143,14 +157,55 @@
         `
       });
 
-      // Disable A-Frame's default touch look-controls so
-      // swiping doesn't rotate the camera and move the scene
       AFRAME.registerComponent('disable-touch-rotation', {
         init: function () {
-          const canvas = this.el.canvas;
           const stopTouch = (e) => e.stopPropagation();
-          // Block touchmove from reaching A-Frame's look-controls
           document.addEventListener('touchmove', stopTouch, { capture: true, passive: false });
+        }
+      });
+
+      // Fix camera feed layering — runs after Mind AR injects its video element
+      AFRAME.registerComponent('ar-camera-fix', {
+        init: function () {
+          this.el.sceneEl.addEventListener('arReady', () => {
+            // Give Mind AR a moment to inject its video
+            setTimeout(() => {
+              document.querySelectorAll('video').forEach(v => {
+                if (!v.id) {
+                  // This is the Mind AR camera feed
+                  v.style.position = 'fixed';
+                  v.style.top = '0';
+                  v.style.left = '0';
+                  v.style.width = '100vw';
+                  v.style.height = '100vh';
+                  v.style.objectFit = 'cover';
+                  v.style.zIndex = '0';
+                  v.style.display = 'block';
+                  // iOS specific: ensure video is not hidden
+                  v.style.visibility = 'visible';
+                  v.style.opacity = '1';
+                  v.setAttribute('playsinline', '');
+                  v.setAttribute('webkit-playsinline', '');
+                }
+              });
+
+              // Force canvas background transparent
+              const canvases = document.querySelectorAll('canvas');
+              canvases.forEach(c => {
+                c.style.background = 'transparent';
+                c.style.backgroundColor = 'transparent';
+              });
+
+              // On iOS, the WebGL context needs explicit alpha
+              // Re-check the renderer gl context
+              const renderer = this.el.sceneEl.renderer;
+              if (renderer) {
+                renderer.setClearColor(0x000000, 0);
+                renderer.clear();
+              }
+
+            }, 500);
+          });
         }
       });
     </script>
@@ -169,17 +224,18 @@
       <span>Tap anywhere to enable video</span>
     </div>
 
-    <div id="debug">v1.5 | Status: starting…<br>Target: searching… | Video: —</div>
+    <div id="debug">v1.6 | Status: starting…<br>Target: searching… | Video: —</div>
 
     <div id="hint">Point camera at the building facade</div>
 
     <a-scene
       mindar-image="imageTargetSrc: target.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
       color-space="sRGB"
-      renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true"
+      renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true; premultipliedAlpha: false"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
       disable-touch-rotation
+      ar-camera-fix
     >
       <a-assets timeout="15000">
         <video
@@ -194,6 +250,7 @@
         ></video>
       </a-assets>
 
+      <!-- look-controls disabled for touch to prevent scene rotation -->
       <a-camera look-controls="touchEnabled: false; magicWindowTrackingEnabled: false"></a-camera>
 
       <a-entity mindar-image-target="targetIndex: 0">
@@ -202,8 +259,7 @@
         <a-light type="directional" color="#ffffff" intensity="1.0"
           position="1 2 1"></a-light>
 
-        <!-- 16:9 aspect ratio to match 1280x720 video
-             width=1.6 height=0.9 gives exact 16:9 at a reasonable size -->
+        <!-- 16:9 plane matching 1280x720 -->
         <a-video
           src="#shark-video"
           position="0 0.5 0"
@@ -224,8 +280,9 @@
       const sharkVideo = document.getElementById('shark-video');
 
       function setDebug(status, target, video) {
+        const platform = isIOS ? '📱iOS' : '🤖Android';
         debug.innerHTML =
-          'v' + VERSION + ' | ' + status +
+          'v' + VERSION + ' ' + platform + ' | ' + status +
           '<br>Target: ' + target +
           '<br>Video: ' + (video || '—');
       }
@@ -273,20 +330,6 @@
         tryPlay();
 
         setTimeout(() => {
-          document.querySelectorAll('video').forEach(v => {
-            if (!v.id) {
-              v.style.position = 'fixed';
-              v.style.top = '0';
-              v.style.left = '0';
-              v.style.width = '100vw';
-              v.style.height = '100vh';
-              v.style.objectFit = 'cover';
-              v.style.zIndex = '0';
-            }
-          });
-        }, 2000);
-
-        setTimeout(() => {
           loading.style.opacity = '0';
           setTimeout(() => loading.style.display = 'none', 800);
         }, 1200);
@@ -294,15 +337,6 @@
 
       scene.addEventListener('arReady', () => {
         setDebug('✅ Mind AR ready — camera live', 'searching…', getVideoState());
-        document.querySelectorAll('video').forEach(v => {
-          if (!v.id) {
-            v.style.zIndex = '0';
-            v.style.position = 'fixed';
-            v.style.width = '100vw';
-            v.style.height = '100vh';
-            v.style.objectFit = 'cover';
-          }
-        });
       });
 
       scene.addEventListener('arError', (e) => {
