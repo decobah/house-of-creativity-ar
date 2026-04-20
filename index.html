@@ -120,9 +120,8 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <script>
-      const VERSION = '1.8';
+      const VERSION = '1.9';
 
-      // Detailed platform detection — logged to debug panel
       const ua = navigator.userAgent;
       const platform = navigator.platform || '';
       const maxTouch = navigator.maxTouchPoints || 0;
@@ -131,9 +130,32 @@
                             (platform === 'MacIntel' && maxTouch > 1);
       const isSafariEngine = /WebKit/.test(ua) && !/Chrome/.test(ua);
 
-      // Full raw UA shown in debug so we can see exactly what the device reports
       const shortUA = ua.substring(0, 60);
 
+      // ─────────────────────────────────────────────────────────────
+      // SHADER SELECTION
+      //
+      // Android / Chrome / Brave: WebM with native alpha channel.
+      //   → webm-alpha shader: just reads color.a directly.
+      //
+      // iOS / Safari / iPad: WebM alpha is NOT decoded.
+      //   → luma-matte shader: reads a side-by-side MP4 where
+      //     LEFT half = RGB colour, RIGHT half = greyscale alpha mask.
+      //
+      // To create the luma-matte MP4 from your source footage, run:
+      //   ffmpeg -i input.mov \
+      //     -filter_complex "[0:v]split=2[l][r]; \
+      //       [r]alphaextract,format=yuv420p[mask]; \
+      //       [l]format=yuv420p[color]; \
+      //       [color][mask]hstack[out]" \
+      //     -map "[out]" -c:v libx264 -crf 18 -pix_fmt yuv420p \
+      //     whale_shark_luma.mp4
+      //
+      // The resulting video is double-width (e.g. 2560×720 for 1280×720 source).
+      // Name it whale_shark_luma.mp4 and add it to your repo.
+      // ─────────────────────────────────────────────────────────────
+
+      // Shader for Android/Chrome: reads WebM native alpha
       AFRAME.registerShader('webm-alpha', {
         schema: {
           src: { type: 'map', is: 'uniform' },
@@ -152,6 +174,37 @@
             vec4 color = texture2D(src, vUv);
             if (color.a < 0.05) discard;
             gl_FragColor = color;
+          }
+        `
+      });
+
+      // Shader for iOS/Safari: reads luma-matte side-by-side MP4
+      // Left half = colour, Right half = greyscale alpha mask
+      AFRAME.registerShader('luma-matte', {
+        schema: {
+          src: { type: 'map', is: 'uniform' },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D src;
+          varying vec2 vUv;
+          void main() {
+            // Left half = RGB colour
+            vec2 colorUV = vec2(vUv.x * 0.5, vUv.y);
+            // Right half = greyscale alpha mask
+            vec2 alphaUV = vec2(vUv.x * 0.5 + 0.5, vUv.y);
+
+            vec4 color = texture2D(src, colorUV);
+            float alpha = texture2D(src, alphaUV).r;
+
+            if (alpha < 0.05) discard;
+            gl_FragColor = vec4(color.rgb, alpha);
           }
         `
       });
@@ -178,7 +231,7 @@
       <span>Tap anywhere to enable video</span>
     </div>
 
-    <div id="debug">v1.8 | starting…</div>
+    <div id="debug">v1.9 | starting…</div>
 
     <div id="hint">Point camera at the building facade</div>
 
@@ -191,9 +244,23 @@
       disable-touch-rotation
     >
       <a-assets timeout="15000">
+        <!-- Android: WebM with native alpha -->
         <video
-          id="shark-video"
+          id="shark-video-webm"
           src="whale_shark.webm"
+          loop
+          muted
+          playsinline
+          webkit-playsinline
+          crossorigin="anonymous"
+          preload="auto"
+        ></video>
+
+        <!-- iOS: luma-matte side-by-side MP4 (double-width) -->
+        <!-- Create with ffmpeg — see shader comment above       -->
+        <video
+          id="shark-video-luma"
+          src="whale_shark_luma.mp4"
           loop
           muted
           playsinline
@@ -209,35 +276,53 @@
         <a-light type="ambient" color="#ffffff" intensity="0.8"></a-light>
         <a-light type="directional" color="#ffffff" intensity="1.0" position="1 2 1"></a-light>
 
+        <!-- This element is updated dynamically once we know the platform -->
         <a-video
-          src="#shark-video"
+          id="ar-video-plane"
           position="0 0.5 0"
           width="1.6"
           height="0.9"
-          material="shader: webm-alpha; src: #shark-video; transparent: true; side: double; depthWrite: false"
         ></a-video>
       </a-entity>
     </a-scene>
 
     <script>
-      const scene = document.querySelector('a-scene');
-      const loading = document.getElementById('loading-screen');
-      const hint = document.getElementById('hint');
-      const debug = document.getElementById('debug');
+      const scene    = document.querySelector('a-scene');
+      const loading  = document.getElementById('loading-screen');
+      const hint     = document.getElementById('hint');
+      const debug    = document.getElementById('debug');
       const tapToStart = document.getElementById('tap-to-start');
-      const sharkVideo = document.getElementById('shark-video');
+      const videoPlane = document.getElementById('ar-video-plane');
 
-      // Show platform info immediately, before any events fire
-      debug.innerHTML = 'v' + VERSION + ' | Apple:' + isAppleDevice +
-                        ' Safari:' + isSafariEngine +
-                        ' tp:' + maxTouch +
-                        '<br>UA: ' + shortUA +
-                        '<br>Status: waiting for A-Frame…';
+      // Pick the right video element and shader based on platform
+      const useIosPath  = isAppleDevice;  // true → luma-matte MP4, false → webm-alpha
+      const activeVideoId     = useIosPath ? 'shark-video-luma' : 'shark-video-webm';
+      const activeShader      = useIosPath ? 'luma-matte'       : 'webm-alpha';
+      const sharkVideo        = document.getElementById(activeVideoId);
+
+      // Apply the correct material to the a-video plane
+      videoPlane.setAttribute('src', '#' + activeVideoId);
+      videoPlane.setAttribute('material',
+        'shader: ' + activeShader + '; ' +
+        'src: #' + activeVideoId + '; ' +
+        'transparent: true; side: double; depthWrite: false'
+      );
+
+      debug.innerHTML =
+        'v' + VERSION +
+        ' | Apple:' + isAppleDevice +
+        ' Safari:' + isSafariEngine +
+        ' tp:' + maxTouch +
+        '<br>Shader: ' + activeShader +
+        '<br>UA: ' + shortUA +
+        '<br>Status: waiting for A-Frame…';
 
       function setDebug(status, target, video) {
         debug.innerHTML =
-          'v' + VERSION + ' | Apple:' + isAppleDevice +
-          ' Safari:' + isSafariEngine + ' tp:' + maxTouch +
+          'v' + VERSION +
+          ' | Apple:' + isAppleDevice +
+          ' Safari:' + isSafariEngine +
+          ' | Shader: ' + activeShader +
           '<br>' + status + ' | Target: ' + (target || '—') +
           '<br>Video: ' + (video || '—');
       }
@@ -252,26 +337,24 @@
       function fixCameraFeed() {
         document.querySelectorAll('video').forEach(v => {
           if (!v.id) {
-            v.style.position = 'fixed';
-            v.style.top = '0';
-            v.style.left = '0';
-            v.style.width = '100vw';
-            v.style.height = '100vh';
-            v.style.objectFit = 'cover';
-            v.style.zIndex = '0';
+            v.style.position   = 'fixed';
+            v.style.top        = '0';
+            v.style.left       = '0';
+            v.style.width      = '100vw';
+            v.style.height     = '100vh';
+            v.style.objectFit  = 'cover';
+            v.style.zIndex     = '0';
             v.style.visibility = 'visible';
-            v.style.opacity = '1';
-            v.style.display = 'block';
+            v.style.opacity    = '1';
+            v.style.display    = 'block';
           }
         });
-        // Force WebGL clear to transparent
         if (scene.renderer) {
           scene.renderer.setClearColor(0x000000, 0);
           scene.renderer.setClearAlpha(0);
         }
-        // Force canvas transparent
         document.querySelectorAll('canvas').forEach(c => {
-          c.style.background = 'transparent';
+          c.style.background      = 'transparent';
           c.style.backgroundColor = 'transparent';
         });
       }
@@ -287,6 +370,38 @@
           });
       }
 
+      // ─── Resume video when returning to the tab/app ───────────────
+      // Browsers (especially iOS Safari) pause media when backgrounded.
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          setDebug('👁 Page visible — resuming…', null, getVideoState());
+          if (sharkVideo && sharkVideo.paused) {
+            sharkVideo.play().catch(e =>
+              setDebug('⚠️ visibilitychange resume failed: ' + e.message, null, getVideoState())
+            );
+          }
+        }
+      });
+
+      // iOS sometimes fires pageshow instead of visibilitychange
+      window.addEventListener('pageshow', (e) => {
+        setDebug('📄 pageshow persisted:' + e.persisted, null, getVideoState());
+        if (sharkVideo && sharkVideo.paused) {
+          sharkVideo.play().catch(e =>
+            setDebug('⚠️ pageshow resume failed: ' + e.message, null, getVideoState())
+          );
+        }
+      });
+
+      // Also resume when the window regains focus (desktop + some mobile)
+      window.addEventListener('focus', () => {
+        if (sharkVideo && sharkVideo.paused) {
+          sharkVideo.play().catch(() => {});
+        }
+      });
+      // ─────────────────────────────────────────────────────────────
+
       if (sharkVideo) {
         sharkVideo.addEventListener('playing', () => setDebug('✅ Ready', 'searching…', '▶ playing'));
         sharkVideo.addEventListener('pause',   () => setDebug('✅ Ready', 'searching…', '⏸ paused'));
@@ -297,7 +412,7 @@
 
       tapToStart.addEventListener('click', () => tryPlay());
 
-      // Fallback: if loaded event never fires, still hide loading screen after 8s
+      // Fallback: hide loading after 8s if loaded event never fires
       setTimeout(() => {
         if (loading.style.display !== 'none') {
           loading.style.opacity = '0';
@@ -321,8 +436,6 @@
         fixCameraFeed();
       });
 
-      // Also run fixCameraFeed on a loop for the first 5 seconds
-      // to catch whenever Mind AR injects its video element
       let fixCount = 0;
       const fixInterval = setInterval(() => {
         fixCameraFeed();
