@@ -93,28 +93,28 @@
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
     <script>
-      // Custom shader material that properly handles webm alpha transparency
-      AFRAME.registerComponent('alpha-video', {
-        schema: { src: { type: 'selector' } },
-        init: function () {
-          const video = this.data.src;
-          const texture = new THREE.VideoTexture(video);
-          texture.minFilter = THREE.LinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          texture.format = THREE.RGBAFormat;
-
-          const material = new THREE.MeshBasicMaterial({
-            map: texture,
-            transparent: true,
-            alphaTest: 0.01,
-            side: THREE.DoubleSide,
-            depthWrite: false,
-          });
-
-          const geometry = new THREE.PlaneGeometry(1, 1);
-          const mesh = new THREE.Mesh(geometry, material);
-          this.el.setObject3D('mesh', mesh);
-        }
+      // Register a custom shader that reads the alpha channel from the webm
+      AFRAME.registerShader('webm-alpha', {
+        schema: {
+          src: { type: 'map', is: 'uniform' },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D src;
+          varying vec2 vUv;
+          void main() {
+            vec4 color = texture2D(src, vUv);
+            // Discard nearly transparent pixels so background shows through
+            if (color.a < 0.05) discard;
+            gl_FragColor = color;
+          }
+        `
       });
     </script>
   </head>
@@ -161,14 +161,14 @@
         <a-light type="directional" color="#ffffff" intensity="1.0"
           position="1 2 1"></a-light>
 
-        <!-- Square video plane using custom alpha-video component
-             width and height are both 1 for square.
-             Adjust position y to move up/down, x for left/right -->
-        <a-entity
-          alpha-video="src: #shark-video"
+        <!-- Square video plane using the webm-alpha shader -->
+        <a-video
+          src="#shark-video"
           position="0 0.8 0"
-          scale="1 1 1"
-        ></a-entity>
+          width="1"
+          height="1"
+          material="shader: webm-alpha; src: #shark-video; transparent: true; side: double; depthWrite: false"
+        ></a-video>
 
       </a-entity>
     </a-scene>
@@ -192,18 +192,16 @@
           canvas.style.backgroundColor = 'transparent';
         }
 
-        // Play the shark video
+        // Play shark video
         const sharkVideo = document.getElementById('shark-video');
         if (sharkVideo) {
-          sharkVideo.play().catch(e => {
-            setDebug('⚠️ Autoplay blocked: tap screen to start', 'searching…');
-            // Fallback: play on first tap
+          sharkVideo.play().catch(() => {
+            setDebug('⚠️ Autoplay blocked — tap screen', 'searching…');
             document.addEventListener('click', () => sharkVideo.play(), { once: true });
           });
         }
 
         setTimeout(() => {
-          // Fix Mind AR camera feed layering
           document.querySelectorAll('video').forEach(v => {
             if (!v.id) {
               v.style.position = 'fixed';
