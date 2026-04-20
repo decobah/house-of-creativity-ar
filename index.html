@@ -45,7 +45,7 @@
         background: #0a0a1a;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
-        z-index: 999; color: #fff;
+        z-index: 9999; color: #fff;
         font-family: sans-serif; text-align: center;
         padding: 24px;
         transition: opacity 0.8s ease;
@@ -75,48 +75,31 @@
         border-radius: 24px;
         pointer-events: none;
         opacity: 1; transition: opacity 1s ease;
-        z-index: 100; white-space: nowrap;
+        /* high z-index so it sits above canvas */
+        z-index: 9998; white-space: nowrap;
       }
 
+      /* Debug panel: very high z-index and pointer-events none
+         so it always renders on top of the canvas and scene */
       #debug {
-        position: fixed; top: 12px; left: 12px; right: 12px;
-        background: rgba(0,0,0,0.75);
-        color: #0f0; font-family: monospace;
-        font-size: 12px; padding: 8px 12px;
+        position: fixed;
+        top: 12px; left: 12px; right: 12px;
+        background: rgba(0,0,0,0.85);
+        color: #00ff00;
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: bold;
+        padding: 10px 14px;
         border-radius: 8px;
-        z-index: 200;
-        line-height: 1.6;
+        border: 1px solid #00ff00;
+        z-index: 99999;
+        pointer-events: none;
+        line-height: 1.8;
       }
     </style>
 
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-
-    <script>
-      const VERSION = '1.1';
-
-      AFRAME.registerShader('webm-alpha', {
-        schema: {
-          src: { type: 'map', is: 'uniform' },
-        },
-        vertexShader: `
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform sampler2D src;
-          varying vec2 vUv;
-          void main() {
-            vec4 color = texture2D(src, vUv);
-            if (color.a < 0.05) discard;
-            gl_FragColor = color;
-          }
-        `
-      });
-    </script>
   </head>
 
   <body>
@@ -127,10 +110,8 @@
       <div class="spinner"></div>
     </div>
 
-    <div id="debug">
-      v1.1 | Status: starting…<br>
-      Target: searching…
-    </div>
+    <!-- Debug panel rendered in HTML, well above the WebGL canvas -->
+    <div id="debug">v1.2 | Status: starting…<br>Target: searching…</div>
 
     <div id="hint">Point camera at the building facade</div>
 
@@ -142,9 +123,10 @@
       device-orientation-permission-ui="enabled: false"
     >
       <a-assets timeout="15000">
+        <!-- Using mp4 for now to check video content and placement -->
         <video
           id="shark-video"
-          src="shark.webm"
+          src="shark.mp4"
           loop
           muted
           playsinline
@@ -161,18 +143,21 @@
         <a-light type="directional" color="#ffffff" intensity="1.0"
           position="1 2 1"></a-light>
 
+        <!-- Square video plane, mp4 with standard material for now -->
         <a-video
           src="#shark-video"
           position="0 0.8 0"
           width="1"
           height="1"
-          material="shader: webm-alpha; src: #shark-video; transparent: true; side: double; depthWrite: false"
+          material="transparent: false; side: double"
         ></a-video>
 
       </a-entity>
     </a-scene>
 
     <script>
+      const VERSION = '1.2';
+
       const scene = document.querySelector('a-scene');
       const loading = document.getElementById('loading-screen');
       const hint = document.getElementById('hint');
