@@ -96,7 +96,7 @@
         border-radius: 24px;
         pointer-events: none;
         opacity: 1; transition: opacity 1s ease;
-        z-index: 9998; white-space: nowrap;
+        z-index: 9998; white-space: normal; max-width: 80vw; text-align: center;
       }
 
       #debug {
@@ -121,6 +121,7 @@
 
     <script>
       const VERSION = '1.9';
+      const DEBUG_MODE = false; // ← set to true to show the debug panel
 
       const ua = navigator.userAgent;
       const platform = navigator.platform || '';
@@ -233,10 +234,10 @@
 
     <div id="debug">v1.9 | starting…</div>
 
-    <div id="hint">Point camera at the building facade</div>
+    <div id="hint">Hold your camera up towards the building facade to reveal the experience.</div>
 
     <a-scene
-      mindar-image="imageTargetSrc: target_2.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
+      mindar-image="imageTargetSrc: target.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
       color-space="sRGB"
       renderer="colorManagement: true; physicallyCorrectLights: true; alpha: true; premultipliedAlpha: false"
       vr-mode-ui="enabled: false"
@@ -246,8 +247,8 @@
       <a-assets timeout="15000">
         <!-- Android: WebM with native alpha -->
         <video
-          id="shark-video-webm"
-          src="whale_shark.webm"
+          id="hoc-video-webm"
+          src="house_of_creativity.webm"
           loop
           muted
           playsinline
@@ -259,8 +260,8 @@
         <!-- iOS: luma-matte side-by-side MP4 (double-width) -->
         <!-- Create with ffmpeg — see shader comment above       -->
         <video
-          id="shark-video-luma"
-          src="whale_shark_luma.mp4"
+          id="hoc-video-luma"
+          src="house_of_creativity_luma.mp4"
           loop
           muted
           playsinline
@@ -279,9 +280,9 @@
         <!-- This element is updated dynamically once we know the platform -->
         <a-video
           id="ar-video-plane"
-          position="0 0.5 0"
+          position="0 -0.05 0"
           width="1.6"
-          height="0.9"
+          height="2.0"
         ></a-video>
       </a-entity>
     </a-scene>
@@ -296,7 +297,7 @@
 
       // Pick the right video element and shader based on platform
       const useIosPath  = isAppleDevice;  // true → luma-matte MP4, false → webm-alpha
-      const activeVideoId     = useIosPath ? 'shark-video-luma' : 'shark-video-webm';
+      const activeVideoId     = useIosPath ? 'hoc-video-luma' : 'hoc-video-webm';
       const activeShader      = useIosPath ? 'luma-matte'       : 'webm-alpha';
       const sharkVideo        = document.getElementById(activeVideoId);
 
@@ -308,6 +309,8 @@
         'transparent: true; side: double; depthWrite: false'
       );
 
+      if (!DEBUG_MODE) debug.style.display = 'none';
+
       debug.innerHTML =
         'v' + VERSION +
         ' | Apple:' + isAppleDevice +
@@ -318,6 +321,7 @@
         '<br>Status: waiting for A-Frame…';
 
       function setDebug(status, target, video) {
+        if (!DEBUG_MODE) return;
         debug.innerHTML =
           'v' + VERSION +
           ' | Apple:' + isAppleDevice +
@@ -457,8 +461,6 @@
         setDebug('✅ AR ready', 'searching…', getVideoState());
         hint.style.opacity = '1';
       });
-
-      setTimeout(() => { hint.style.opacity = '0'; }, 5000);
     </script>
 
   </body>
