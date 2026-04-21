@@ -121,6 +121,7 @@
 
     <script>
       const VERSION = '1.9';
+      const DEBUG_MODE = false; // ← set to false to hide the debug panel
 
       const ua = navigator.userAgent;
       const platform = navigator.platform || '';
@@ -308,6 +309,8 @@
         'transparent: true; side: double; depthWrite: false'
       );
 
+      if (!DEBUG_MODE) debug.style.display = 'none';
+
       debug.innerHTML =
         'v' + VERSION +
         ' | Apple:' + isAppleDevice +
@@ -318,6 +321,7 @@
         '<br>Status: waiting for A-Frame…';
 
       function setDebug(status, target, video) {
+        if (!DEBUG_MODE) return;
         debug.innerHTML =
           'v' + VERSION +
           ' | Apple:' + isAppleDevice +
