@@ -378,7 +378,15 @@
       // Browsers (especially iOS Safari) pause media when backgrounded.
 
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
+        const mindAR = scene.systems['mindar-image-system'];
+
+        if (document.visibilityState === 'hidden') {
+          // Pause camera + tracking to save battery
+          if (mindAR) mindAR.pause();
+        } else {
+          // Resume camera + tracking
+          if (mindAR) mindAR.unpause();
+          // Also resume video if it was paused
           setDebug('👁 Page visible — resuming…', null, getVideoState());
           if (sharkVideo && sharkVideo.paused) {
             sharkVideo.play().catch(e =>
