@@ -247,8 +247,8 @@
       <a-assets timeout="15000">
         <!-- Android: WebM with native alpha -->
         <video
-          id="shark-video-webm"
-          src="whale_shark.webm"
+          id="hoc-video-webm"
+          src="house_of_creativity.webm"
           loop
           muted
           playsinline
@@ -260,8 +260,8 @@
         <!-- iOS: luma-matte side-by-side MP4 (double-width) -->
         <!-- Create with ffmpeg — see shader comment above       -->
         <video
-          id="shark-video-luma"
-          src="whale_shark_luma.mp4"
+          id="hoc-video-luma"
+          src="house_of_creativity_luma.mp4"
           loop
           muted
           playsinline
@@ -280,9 +280,9 @@
         <!-- This element is updated dynamically once we know the platform -->
         <a-video
           id="ar-video-plane"
-          position="0 0.5 0"
+          position="0 -0.35 0"
           width="1.6"
-          height="0.9"
+          height="2.0"
         ></a-video>
       </a-entity>
     </a-scene>
@@ -297,7 +297,7 @@
 
       // Pick the right video element and shader based on platform
       const useIosPath  = isAppleDevice;  // true → luma-matte MP4, false → webm-alpha
-      const activeVideoId     = useIosPath ? 'shark-video-luma' : 'shark-video-webm';
+      const activeVideoId     = useIosPath ? 'hoc-video-luma' : 'hoc-video-webm';
       const activeShader      = useIosPath ? 'luma-matte'       : 'webm-alpha';
       const sharkVideo        = document.getElementById(activeVideoId);
 
@@ -378,7 +378,15 @@
       // Browsers (especially iOS Safari) pause media when backgrounded.
 
       document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
+        const mindAR = scene.systems['mindar-image-system'];
+
+        if (document.visibilityState === 'hidden') {
+          // Pause camera + tracking to save battery
+          if (mindAR) mindAR.pause();
+        } else {
+          // Resume camera + tracking
+          if (mindAR) mindAR.unpause();
+          // Also resume video if it was paused
           setDebug('👁 Page visible — resuming…', null, getVideoState());
           if (sharkVideo && sharkVideo.paused) {
             sharkVideo.play().catch(e =>
@@ -461,8 +469,6 @@
         setDebug('✅ AR ready', 'searching…', getVideoState());
         hint.style.opacity = '1';
       });
-
-      setTimeout(() => { hint.style.opacity = '0'; }, 5000);
     </script>
 
   </body>
