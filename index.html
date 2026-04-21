@@ -96,7 +96,7 @@
         border-radius: 24px;
         pointer-events: none;
         opacity: 1; transition: opacity 1s ease;
-        z-index: 9998; white-space: nowrap;
+        z-index: 9998; white-space: normal; max-width: 80vw; text-align: center;
       }
 
       #debug {
@@ -121,7 +121,7 @@
 
     <script>
       const VERSION = '1.9';
-      const DEBUG_MODE = false; // ← set to false to hide the debug panel
+      const DEBUG_MODE = true; // ← set to false to hide the debug panel
 
       const ua = navigator.userAgent;
       const platform = navigator.platform || '';
@@ -234,7 +234,7 @@
 
     <div id="debug">v1.9 | starting…</div>
 
-    <div id="hint">Point camera at the building facade</div>
+    <div id="hint">Point your camera at the front of the building above the entrance to view the experience.</div>
 
     <a-scene
       mindar-image="imageTargetSrc: target.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
