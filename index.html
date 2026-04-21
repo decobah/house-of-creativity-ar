@@ -121,7 +121,7 @@
 
     <script>
       const VERSION = '1.9';
-      const DEBUG_MODE = true; // ← set to false to hide the debug panel
+      const DEBUG_MODE = false; // ← set to true to show the debug panel
 
       const ua = navigator.userAgent;
       const platform = navigator.platform || '';
@@ -234,7 +234,7 @@
 
     <div id="debug">v1.9 | starting…</div>
 
-    <div id="hint">Point your camera at the front of the building above the entrance to view the experience.</div>
+    <div id="hint">Hold your camera up towards the building facade to reveal the experience.</div>
 
     <a-scene
       mindar-image="imageTargetSrc: target.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
